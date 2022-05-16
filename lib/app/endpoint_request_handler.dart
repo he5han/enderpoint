@@ -40,5 +40,5 @@ class EndpointRequestHandler {
     }
   }
 
-  List<Endpoint> get endpoints => endpointCollection.list;
+  // List<Endpoint> get endpoints => endpointCollection.list;
 }

@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<EndpointViewService>(
-            create: (_) => EndpointViewService(EndpointRequestHandler(EndpointCollection([])))..init())
+            create: (_) => EndpointViewService([])..init())
       ],
       child: MaterialApp(
         title: 'Flutter Demo',
