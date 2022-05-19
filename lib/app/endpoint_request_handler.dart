@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../core/endpoint.dart';
-import 'endpoint_collection.dart';
+import 'endpoint_repository.dart';
 
 class EndpointRequestHandler {
-  final EndpointCollection endpointCollection;
+  final EndpointRepository endpointCollection;
 
   EndpointRequestHandler(this.endpointCollection);
 

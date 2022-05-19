@@ -1,6 +1,6 @@
 import 'package:rxdart/rxdart.dart';
 
-import 'endpoint_collection.dart';
+import 'endpoint_repository.dart';
 
 import '../core/flavor.dart';
 import '../core/endpoint.dart';
@@ -12,29 +12,29 @@ class EndpointViewModel {
   EndpointViewModel({required this.endpoints, this.selectedEndpoint});
 }
 
-class EndpointViewService {
-  final EndpointCollection _endpointCollection;
+class EndpointPresenter {
+  final EndpointRepository endpointCollection;
 
   late BehaviorSubject<EndpointViewModel> observable;
   late EndpointViewModel _viewModel;
 
-  EndpointViewService(List<Endpoint> initialEndpoints) : _endpointCollection = EndpointCollection(initialEndpoints);
+  EndpointPresenter(this.endpointCollection);
 
   setFlavor(Endpoint endpoint, Flavor flavor) {
     endpoint.flavor = flavor;
-    _viewModel.endpoints = _endpointCollection.list;
+    _viewModel.endpoints = endpointCollection.list;
     observable.add(_viewModel);
   }
 
   addEndpoint(Endpoint endpoint) {
-    _endpointCollection.list.add(endpoint);
-    _viewModel.endpoints = _endpointCollection.list;
+    endpointCollection.list.add(endpoint);
+    _viewModel.endpoints = endpointCollection.list;
     observable.add(_viewModel);
   }
 
   removeEndpoint(Endpoint endpoint) {
-    _endpointCollection.list.remove(endpoint);
-    _viewModel.endpoints = _endpointCollection.list;
+    endpointCollection.list.remove(endpoint);
+    _viewModel.endpoints = endpointCollection.list;
     observable.add(_viewModel);
   }
 
@@ -48,7 +48,5 @@ class EndpointViewService {
     observable = BehaviorSubject<EndpointViewModel>.seeded(_viewModel);
   }
 
-  EndpointViewModel getCurrentSync() {
-    return _viewModel;
-  }
+  EndpointViewModel get model => _viewModel;
 }

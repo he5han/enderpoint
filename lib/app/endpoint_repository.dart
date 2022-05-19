@@ -1,9 +1,9 @@
 import '../core/endpoint.dart';
 
-class EndpointCollection {
+class EndpointRepository {
   final List<Endpoint> list;
 
-  EndpointCollection(this.list);
+  EndpointRepository(this.list);
 
   findByUrl(String url) {
     return list.firstWhere((element) => element.url == url);
