@@ -3,7 +3,7 @@ import 'dart:io';
 class Flavor {
   final int identifier;
   final int statusCode;
-  final Map<String, dynamic> body;
+  final dynamic body;
 
   Flavor(
       {this.statusCode = HttpStatus.ok,

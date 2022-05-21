@@ -19,7 +19,7 @@ class EndpointServerPresenter {
   EndpointServerPresenter(this.server);
 
   start() {
-    server.listen(onDone: stop);
+    server.listen();
     _viewModel.state = ServerState.idle;
     observable.add(_viewModel);
   }

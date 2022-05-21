@@ -1,12 +1,14 @@
 import 'dart:math';
 
+import 'package:enderpoint/app/endpoint_repository.dart';
 import 'package:enderpoint/ui/endpoint_list.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rxdart/rxdart.dart';
 
-import '../app/dev_client_presenter.dart';
-import '../app/endpoint_presenter.dart';
+import '../app/dev_client_repository.dart';
 import '../app/endpoint_server_presenter.dart';
+import '../app/selected_endpoint_presenter.dart';
 import '../core/endpoint.dart';
 import '../core/flavor.dart';
 import 'endpoint_server_controls.dart';
@@ -21,7 +23,7 @@ class ControlPanel extends StatelessWidget {
         Row(
           children: const [EndpointServerControlsProviderAdapter(), EndpointCreator()],
         ),
-        // const DevClintPresenterProviderAdapter(),
+        const DevClintPresenterProviderAdapter(),
         const Expanded(child: EndpointListProviderAdapter()),
         const SelectedEndpoint()
       ],
@@ -34,15 +36,17 @@ class SelectedEndpoint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    EndpointPresenter presenter = Provider.of<EndpointPresenter>(context);
-    return StreamBuilder<EndpointViewModel>(
-        stream: presenter.observable,
-        builder: (context, snapshot) => snapshot.data?.selectedEndpoint != null &&
-                snapshot.data!.endpoints.contains(snapshot.data!.selectedEndpoint)
+    SelectedEndpointPresenter presenter = Provider.of<SelectedEndpointPresenter>(context);
+    EndpointRepository repository = Provider.of<EndpointRepository>(context);
+
+    return StreamBuilder<Endpoint?>(
+        stream: Rx.combineLatest2<Endpoint?, EndpointRepository, Endpoint?>(
+            presenter.stream, repository.stream, (point, repo) => repo.list.contains(point) ? point : null),
+        builder: (context, snapshot) => snapshot.data != null
             ? EndpointCard(
-                endpoint: snapshot.data!.selectedEndpoint!,
-                onFlavorSelect: (flavor) => presenter.setFlavor(snapshot.data!.selectedEndpoint!, flavor),
-                onRemove: () => null,
+                endpoint: snapshot.data!,
+                onFlavorSelect: (flavor) => repository.update(snapshot.data!, snapshot.data!..flavor = flavor),
+                onRemove: () => repository.remove(snapshot.data!),
                 onSelect: () => null,
                 isSelected: false)
             : const SizedBox());
@@ -66,7 +70,7 @@ class EndpointCreator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextButton(
-        onPressed: () => Provider.of<EndpointPresenter>(context, listen: false).addEndpoint(generateEndpoint()),
+        onPressed: () => Provider.of<EndpointRepository>(context, listen: false).add(generateEndpoint()),
         child: const Text("Create Endpoint"));
   }
 }
@@ -76,12 +80,24 @@ class DevClintPresenterProviderAdapter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    DevClintPresenter presenter = Provider.of<DevClintPresenter>(context);
-    return StreamBuilder<DevClientViewModel>(
-        stream: presenter.observable,
-        builder: (context, snapshot) =>
-            Row(children: (snapshot.data?.clients ?? []).map((e) => Text(e.address.toString())).toList()));
+    DevClientRepository repository = Provider.of<DevClientRepository>(context);
+
+    return StreamBuilder<DevClientRepository>(
+        stream: repository.stream,
+        builder: (context, snapshot) => Row(
+            children: (snapshot.data?.list ?? [])
+                .map((wsClient) => TextButton(
+                    child: Text(wsClient.address.toString()),
+                    onPressed: () async => await snapshot.data?.remove(wsClient, disconnectBefore: true)))
+                .toList()));
   }
+}
+
+class SelectableListViewModel {
+  final Endpoint? selected;
+  final List<Endpoint> list;
+
+  SelectableListViewModel({this.selected, required this.list});
 }
 
 class EndpointListProviderAdapter extends StatelessWidget {
@@ -89,15 +105,18 @@ class EndpointListProviderAdapter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    EndpointPresenter presenter = Provider.of<EndpointPresenter>(context);
-    return StreamBuilder<EndpointViewModel>(
-        stream: presenter.observable,
+    SelectedEndpointPresenter presenter = Provider.of<SelectedEndpointPresenter>(context);
+    EndpointRepository repository = Provider.of<EndpointRepository>(context);
+
+    return StreamBuilder<SelectableListViewModel>(
+        stream: Rx.combineLatest2<Endpoint?, EndpointRepository, SelectableListViewModel>(
+            presenter.stream, repository.stream, (a, b) => SelectableListViewModel(selected: a, list: b.list)),
         builder: (context, snapshot) => EndpointList(
-            endpoints: snapshot.data?.endpoints ?? [],
-            selectedEndpoint: snapshot.data?.selectedEndpoint,
-            onFlavorSelect: (flavor, endpoint) => presenter.setFlavor(endpoint, flavor),
-            onSelect: (endpoint) => presenter.setSelectedEndpoint(endpoint),
-            onRemove: (endpoint) => presenter.removeEndpoint(endpoint)));
+            endpoints: snapshot.data?.list ?? [],
+            selectedEndpoint: snapshot.data?.selected,
+            onFlavorSelect: (flavor, endpoint) => repository.update(endpoint, endpoint..flavor = flavor),
+            onSelect: (endpoint) => presenter.setEndpoint(endpoint),
+            onRemove: (endpoint) => repository.remove(endpoint)));
   }
 }
 
@@ -107,6 +126,7 @@ class EndpointServerControlsProviderAdapter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     EndpointServerPresenter presenter = Provider.of<EndpointServerPresenter>(context);
+
     return StreamBuilder<EndpointServerViewModel>(
       stream: presenter.observable,
       builder: (context, snapshot) => EndpointServerControls(

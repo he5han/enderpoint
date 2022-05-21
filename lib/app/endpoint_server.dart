@@ -18,9 +18,9 @@ class EndpointServer {
 
   EndpointServer(this._requestHandler, {required this.config});
 
-  listen({Function()? onDone}) async {
+  listen() async {
     try {
-      _serverSubscription = _server.listen(_requestHandler.handleHttpRequest, onDone: onDone);
+      _serverSubscription = _server.listen(_requestHandler.handleHttpRequest, onDone: cancel);
     } on Error {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, config.port, shared: true);
       await listen();

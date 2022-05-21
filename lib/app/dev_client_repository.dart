@@ -1,22 +1,34 @@
+import 'dart:async';
+
 import 'dev_client.dart';
 
 class DevClientRepository {
-  Function(DevClientRepository)? onChange;
-  List<DevClient> list;
+  List<WsClient> list;
+  final StreamController<DevClientRepository> _controller;
 
-  DevClientRepository(this.list, { this.onChange});
+  DevClientRepository(this.list) : _controller = StreamController.broadcast();
 
-  add(DevClient value) {
+  add(WsClient value) {
     list.add(value);
-    onChange ?? (this);
+    _controller.sink.add(this);
   }
 
-  remove(DevClient value) {
+  remove(WsClient value, {bool disconnectBefore = false}) {
+    if (disconnectBefore) {
+      value.socket.close();
+    }
+
     list.remove(value);
-    onChange ?? (this);
+    _controller.sink.add(this);
   }
 
   findByAddress(String address) {
     return list.firstWhere((element) => element.address == address);
   }
+
+  dispose() async {
+    await _controller.close();
+  }
+
+  Stream<DevClientRepository> get stream => _controller.stream;
 }
