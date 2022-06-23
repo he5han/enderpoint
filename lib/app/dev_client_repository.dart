@@ -1,25 +1,29 @@
 import 'dart:async';
 
-import 'dev_client.dart';
+import 'dev_client_connection.dart';
 
-class DevClientRepository {
-  List<WsClient> list;
-  final StreamController<DevClientRepository> _controller;
+class WsClientConnectionRepository {
+  List<WsClientConnection> list;
+  final StreamController<WsClientConnectionRepository> _controller;
 
-  DevClientRepository(this.list) : _controller = StreamController.broadcast();
+  WsClientConnectionRepository(this.list) : _controller = StreamController.broadcast();
 
-  add(WsClient value) {
-    list.add(value);
+  _notify() {
     _controller.sink.add(this);
   }
 
-  remove(WsClient value, {bool disconnectBefore = false}) {
+  add(WsClientConnection value) {
+    list.add(value);
+    _notify();
+  }
+
+  remove(WsClientConnection value, {bool disconnectBefore = false}) {
     if (disconnectBefore) {
       value.socket.close();
     }
 
     list.remove(value);
-    _controller.sink.add(this);
+    _notify();
   }
 
   findByAddress(String address) {
@@ -30,5 +34,5 @@ class DevClientRepository {
     await _controller.close();
   }
 
-  Stream<DevClientRepository> get stream => _controller.stream;
+  Stream<WsClientConnectionRepository> get stream => _controller.stream;
 }

@@ -7,35 +7,32 @@ import 'package:enderpoint/app/endpoint_repository.dart';
 import 'package:enderpoint/core/flavor.dart';
 
 import '../core/endpoint.dart';
-import 'dev_client.dart';
+import 'dev_client_connection.dart';
 import 'dev_client_repository.dart';
 
 class DevRequestHandler {
-  final DevClientRepository clientRepo;
+  final WsClientConnectionRepository clientRepo;
   final EndpointRepository endpointRepo;
 
   DevRequestHandler(this.clientRepo, this.endpointRepo);
 
-  _handleClientEvent(event, WsClient client) {
+  void _handleClientEvent(event, WsClientConnection client) {
     try {
       var dEvent = json.decode(event);
-      if (dEvent["event"] == "create-endpoint") {
-        var payload = dEvent['payload'];
-        Endpoint endpoint = Endpoint(
-            payload["id"],
-            payload["flavors"]
-                .map<Flavor>((flavor) =>
-                    Flavor(identifier: flavor["id"], statusCode: flavor["statusCode"], body: flavor["body"]))
-                .toList(),
-            payload["url"]);
-        endpointRepo.add(endpoint);
+      switch (dEvent["event"]) {
+        case "create-endpoint":
+          {
+            Endpoint endpoint = EndpointHelper.endpointFromJson(dEvent['payload']);
+            endpointRepo.add(endpoint);
+            break;
+          }
       }
     } catch (err) {
       print(err);
     }
   }
 
-  _handleClient(WsClient client) {
+  void _handleClient(WsClientConnection client) {
     clientRepo.add(client);
     client.socket.listen((event) => _handleClientEvent(event, client), onDone: () {
       client.socket.close();
@@ -45,12 +42,22 @@ class DevRequestHandler {
 
   void _handleWebsocketConnection(HttpRequest request) async {
     WebSocket socket = await WebSocketTransformer.upgrade(request);
-    _handleClient(WsClient(socket: socket, request: request));
+    _handleClient(WsClientConnection(socket: socket, request: request));
   }
 
-  handleHttpRequest(HttpRequest request) {
+  void handleHttpRequest(HttpRequest request) {
     if (request.headers.value('connection') == 'Upgrade') {
       _handleWebsocketConnection(request);
     }
+  }
+}
+
+class EndpointHelper {
+  static flavorFormJson(dynamic data) {
+    return Flavor(identifier: data["id"], statusCode: data["statusCode"], body: data["body"]);
+  }
+
+  static Endpoint endpointFromJson(dynamic data) {
+    return Endpoint(data["id"], data["flavors"].map<Flavor>((flavor) => flavorFormJson(flavor)).toList(), data["url"]);
   }
 }

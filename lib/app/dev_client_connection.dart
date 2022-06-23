@@ -1,10 +1,10 @@
 import 'dart:io';
 
-class WsClient {
+class WsClientConnection {
   WebSocket socket;
   HttpRequest request;
 
-  WsClient({required this.socket, required this.request});
+  WsClientConnection({required this.socket, required this.request});
 
   String? get address => request.connectionInfo?.remoteAddress.address;
 }

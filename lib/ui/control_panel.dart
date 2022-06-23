@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:enderpoint/app.dart';
 import 'package:enderpoint/app/endpoint_repository.dart';
 import 'package:enderpoint/ui/endpoint_list.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +14,7 @@ import '../app/selected_endpoint_presenter.dart';
 import '../core/endpoint.dart';
 import '../core/flavor.dart';
 import 'endpoint_server_controls.dart';
+import 'models/selectable_endpoint.dart';
 
 class ControlPanel extends StatelessWidget {
   const ControlPanel({Key? key}) : super(key: key);
@@ -20,6 +23,7 @@ class ControlPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        const IpContainer(),
         Row(
           children: const [EndpointServerControlsProviderAdapter(), EndpointCreator()],
         ),
@@ -31,22 +35,46 @@ class ControlPanel extends StatelessWidget {
   }
 }
 
+class IpContainer extends StatelessWidget {
+  const IpContainer({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<NetworkInterface>>(
+        future: NetworkInterface.list(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.waiting) {
+            if (snapshot.hasData) {
+              if (snapshot.data!.isNotEmpty) {
+                return Text(snapshot.data!.first.addresses.toString());
+              } else {
+                return const Text("N/A");
+              }
+            } else if (snapshot.hasError) {
+              return Text(snapshot.error.toString());
+            }
+          }
+
+          return const Text("Waiting...");
+        });
+  }
+}
+
 class SelectedEndpoint extends StatelessWidget {
   const SelectedEndpoint({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    SelectedEndpointPresenter presenter = Provider.of<SelectedEndpointPresenter>(context);
-    EndpointRepository repository = Provider.of<EndpointRepository>(context);
+    App app = Provider.of<App>(context);
 
     return StreamBuilder<Endpoint?>(
-        stream: Rx.combineLatest2<Endpoint?, EndpointRepository, Endpoint?>(
-            presenter.stream, repository.stream, (point, repo) => repo.list.contains(point) ? point : null),
+        stream: app.selectedEndpointObserver,
         builder: (context, snapshot) => snapshot.data != null
             ? EndpointCard(
                 endpoint: snapshot.data!,
-                onFlavorSelect: (flavor) => repository.update(snapshot.data!, snapshot.data!..flavor = flavor),
-                onRemove: () => repository.remove(snapshot.data!),
+                onFlavorSelect: (flavor) =>
+                    app.endpointRepository.update(snapshot.data!, snapshot.data!..flavor = flavor),
+                onRemove: () => app.endpointRepository.remove(snapshot.data!),
                 onSelect: () => null,
                 isSelected: false)
             : const SizedBox());
@@ -70,7 +98,7 @@ class EndpointCreator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextButton(
-        onPressed: () => Provider.of<EndpointRepository>(context, listen: false).add(generateEndpoint()),
+        onPressed: () => Provider.of<App>(context, listen: false).endpointRepository.add(generateEndpoint()),
         child: const Text("Create Endpoint"));
   }
 }
@@ -80,10 +108,8 @@ class DevClintPresenterProviderAdapter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    DevClientRepository repository = Provider.of<DevClientRepository>(context);
-
-    return StreamBuilder<DevClientRepository>(
-        stream: repository.stream,
+    return StreamBuilder<WsClientConnectionRepository>(
+        stream: Provider.of<App>(context).wsClientConnectionRepository.stream,
         builder: (context, snapshot) => Row(
             children: (snapshot.data?.list ?? [])
                 .map((wsClient) => TextButton(
@@ -93,30 +119,21 @@ class DevClintPresenterProviderAdapter extends StatelessWidget {
   }
 }
 
-class SelectableListViewModel {
-  final Endpoint? selected;
-  final List<Endpoint> list;
-
-  SelectableListViewModel({this.selected, required this.list});
-}
-
 class EndpointListProviderAdapter extends StatelessWidget {
   const EndpointListProviderAdapter({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    SelectedEndpointPresenter presenter = Provider.of<SelectedEndpointPresenter>(context);
-    EndpointRepository repository = Provider.of<EndpointRepository>(context);
+    App app = Provider.of<App>(context);
 
-    return StreamBuilder<SelectableListViewModel>(
-        stream: Rx.combineLatest2<Endpoint?, EndpointRepository, SelectableListViewModel>(
-            presenter.stream, repository.stream, (a, b) => SelectableListViewModel(selected: a, list: b.list)),
+    return StreamBuilder<List<SelectableEndpoint>>(
+        stream: app.selectableEndpointListObserver,
         builder: (context, snapshot) => EndpointList(
-            endpoints: snapshot.data?.list ?? [],
-            selectedEndpoint: snapshot.data?.selected,
-            onFlavorSelect: (flavor, endpoint) => repository.update(endpoint, endpoint..flavor = flavor),
-            onSelect: (endpoint) => presenter.setEndpoint(endpoint),
-            onRemove: (endpoint) => repository.remove(endpoint)));
+            endpoints: snapshot.data?.map((item) => item.endpoint).toList() ?? [],
+            selectedEndpoint: snapshot.data?.firstWhere((element) => element.isSelected).endpoint,
+            onFlavorSelect: (flavor, endpoint) => app.endpointRepository.update(endpoint, endpoint..flavor = flavor),
+            onSelect: (endpoint) => app.selectedEndpointPresenter.setEndpoint(endpoint),
+            onRemove: (endpoint) => app.endpointRepository.remove(endpoint)));
   }
 }
 
@@ -125,7 +142,7 @@ class EndpointServerControlsProviderAdapter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    EndpointServerPresenter presenter = Provider.of<EndpointServerPresenter>(context);
+    EndpointServerPresenter presenter = Provider.of<App>(context).endpointServerPresenter;
 
     return StreamBuilder<EndpointServerViewModel>(
       stream: presenter.observable,

@@ -18,12 +18,13 @@ class DevServer {
 
   DevServer(this._requestHandler, {required this.config});
 
-  listen() async {
+  Future<StreamSubscription?> listen() async {
     try {
       _serverSubscription = _server.listen(_requestHandler.handleHttpRequest, onDone: cancel);
+      return _serverSubscription;
     } on Error {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, config.port, shared: true);
-      await listen();
+      return await listen();
     }
   }
 

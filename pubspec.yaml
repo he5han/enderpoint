@@ -27,6 +27,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  connectivity_plus: ^2.3.4
   provider: ^6.0.2
   rxdart: ^0.27.3
   flutter:

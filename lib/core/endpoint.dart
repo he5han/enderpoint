@@ -7,8 +7,7 @@ class Endpoint {
 
   Flavor flavor;
 
-  Endpoint(this.identifier, this.flavors, this.url, {Flavor? flavor})
-      : flavor = flavor ?? flavors.first;
+  Endpoint(this.identifier, this.flavors, this.url, {Flavor? flavor}) : flavor = flavor ?? flavors.first;
 
   // URL is supposed to be unique
   @override
@@ -21,4 +20,12 @@ class Endpoint {
 
   @override
   int get hashCode => identifier;
+}
+
+extension JsonHelper on Endpoint {
+  hi() {
+
+  }
+
+
 }

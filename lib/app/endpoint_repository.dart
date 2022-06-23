@@ -8,22 +8,26 @@ class EndpointRepository {
 
   EndpointRepository(this.list) : _controller = StreamController.broadcast();
 
-  add(Endpoint value) {
+  void _notify() {
+    _controller.sink.add(this);
+  }
+
+  void add(Endpoint value) {
     list.add(value);
-    _controller.sink.add(this);
+    _notify();
   }
 
-  remove(Endpoint value) {
+  void remove(Endpoint value) {
     list.remove(value);
-    _controller.sink.add(this);
+    _notify();
   }
 
-  update(Endpoint value, Endpoint nextValue) {
+  void update(Endpoint value, Endpoint nextValue) {
     value = nextValue;
-    _controller.sink.add(this);
+    _notify();
   }
 
-  findByUrl(String url) {
+  Endpoint? findByUrl(String url) {
     return list.firstWhere((element) => element.url == url);
   }
 

@@ -19,8 +19,10 @@ class EndpointRequestHandler {
 
   handleHttpRequest(HttpRequest request) {
     try {
-      Endpoint endpoint = endpointCollection.findByUrl(request.uri.toString());
-      _resolveRequest(request, endpoint);
+      Endpoint? endpoint = endpointCollection.findByUrl(request.uri.toString());
+      if(endpoint != null) {
+        _resolveRequest(request, endpoint);
+      }
     } on StateError {
       request.response
         ..headers.contentType = ContentType.html
