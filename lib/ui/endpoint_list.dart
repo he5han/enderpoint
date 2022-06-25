@@ -1,34 +1,29 @@
+import 'models/selectable_endpoint.dart';
 import 'package:flutter/material.dart';
 
 import '../core/endpoint.dart';
 import '../core/flavor.dart';
 
 class EndpointList extends StatelessWidget {
-  final List<Endpoint> endpoints;
-  final Endpoint? selectedEndpoint;
+  final List<SelectableEndpoint> items;
   final Function(Flavor, Endpoint) onFlavorSelect;
   final Function(Endpoint) onSelect;
   final Function(Endpoint) onRemove;
 
   const EndpointList(
-      {Key? key,
-      required this.endpoints,
-      required this.selectedEndpoint,
-      required this.onFlavorSelect,
-      required this.onSelect,
-      required this.onRemove})
+      {Key? key, required this.items, required this.onFlavorSelect, required this.onSelect, required this.onRemove})
       : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      children: (endpoints)
-          .map((endpoint) => EndpointCard(
-                endpoint: endpoint,
-                isSelected: endpoint == selectedEndpoint,
-                onSelect: () => onSelect(endpoint),
-                onFlavorSelect: (flavor) => onFlavorSelect(flavor, endpoint),
-                onRemove: () => onRemove(endpoint),
+      children: (items)
+          .map((item) => EndpointCard(
+                endpoint: item.endpoint,
+                isSelected: item.isSelected,
+                onSelect: () => onSelect(item.endpoint),
+                onFlavorSelect: (flavor) => onFlavorSelect(flavor, item.endpoint),
+                onRemove: () => onRemove(item.endpoint),
               ))
           .toList(),
       shrinkWrap: false,

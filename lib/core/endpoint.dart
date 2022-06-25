@@ -1,31 +1,36 @@
 import 'flavor.dart';
 
 class Endpoint {
-  final int identifier;
+  final String id;
   final List<Flavor> flavors;
   final String url;
 
-  Flavor flavor;
+  Flavor? flavor;
 
-  Endpoint(this.identifier, this.flavors, this.url, {Flavor? flavor}) : flavor = flavor ?? flavors.first;
+  Endpoint(this.id, this.flavors, this.url, {Flavor? initialFlavor}) : flavor = initialFlavor;
 
-  // URL is supposed to be unique
+  Endpoint.fromJson(Map<String, dynamic> data, {Flavor? initialFlavor})
+      : id = data["id"],
+        url = data["url"],
+        flavor = initialFlavor,
+        flavors = data["flavors"].map<Flavor>((flavor) => Flavor.fromJson(flavor)).toList();
+
   @override
   bool operator ==(Object other) {
     if (other is Endpoint) {
-      return other.url == url || super == other;
+      return other.id == id || super == other;
     }
     return super == other;
   }
 
   @override
-  int get hashCode => identifier;
+  int get hashCode => id.hashCode;
 }
 
-extension JsonHelper on Endpoint {
-  hi() {
-
+extension ToJson on Endpoint {
+  toJson() {
+    return {
+      "id": id,
+    };
   }
-
-
 }

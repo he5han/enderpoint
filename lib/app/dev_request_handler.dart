@@ -3,12 +3,32 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:enderpoint/app/endpoint_repository.dart';
-import 'package:enderpoint/core/flavor.dart';
+import 'package:uuid/uuid.dart';
 
+import '../app/dev_notification_handler.dart';
+import '../app/endpoint_repository.dart';
+import '../core/flavor.dart';
 import '../core/endpoint.dart';
+
 import 'dev_client_connection.dart';
 import 'dev_client_repository.dart';
+
+class DevWsResponse {
+  static const ok = "OK";
+
+  late WsClientConnection connection;
+  late String requestId;
+  late String action;
+  late dynamic body;
+
+  DevWsResponse() : body = {};
+
+  close() {
+    connection.socket.add(
+        DevNotification(id: const Uuid().v1(), action: "dev:response", payload: {"requestId": requestId, "body": body})
+            .toString());
+  }
+}
 
 class DevRequestHandler {
   final WsClientConnectionRepository clientRepo;
@@ -16,33 +36,82 @@ class DevRequestHandler {
 
   DevRequestHandler(this.clientRepo, this.endpointRepo);
 
-  void _handleClientEvent(event, WsClientConnection client) {
+  void _handleClientEvent(event, WsClientConnection connection) {
     try {
       var dEvent = json.decode(event);
+      DevWsResponse response = DevWsResponse()
+        ..connection = connection
+        ..requestId = dEvent["id"];
+
       switch (dEvent["event"]) {
-        case "create-endpoint":
+        case "endpoint:create":
           {
             Endpoint endpoint = EndpointHelper.endpointFromJson(dEvent['payload']);
             endpointRepo.add(endpoint);
+            response.body = "OK";
+            break;
+          }
+        case "endpoint:update":
+          {
+            try {
+              Endpoint endpoint = EndpointHelper.endpointFromJson(dEvent['payload']);
+              endpointRepo.update(dEvent['payload']["id"], endpoint);
+              response.body = "OK";
+            } catch (_) {
+              response.body = {"error": "Not found"};
+            }
+
+            break;
+          }
+        case "endpoint:delete":
+          {
+            try {
+              endpointRepo.remove(dEvent['payload']["id"]);
+              response.body = "OK";
+            } catch (_) {
+              response.body = {"error": "Not found"};
+            }
+            break;
+          }
+        case "endpoint:bootstrap":
+          {
+            try {
+              endpointRepo.remove(dEvent['payload']["id"]);
+              response.body = "OK";
+            } catch (_) {
+              response.body = {"error": "Not found"};
+            }
+            break;
+          }
+        default:
+          {
+            response.body = {"error": "Method '${dEvent["event"]}' not found"};
             break;
           }
       }
+
+      response.close();
     } catch (err) {
       print(err);
     }
   }
 
-  void _handleClient(WsClientConnection client) {
+  void _handleDisconnect(WsClientConnection client) {
+    client.socket.close();
+
+    clientRepo.remove(client);
+  }
+
+  void _handleClientConnect(WsClientConnection client) {
+    client.socket.listen((event) => _handleClientEvent(event, client), onDone: () => _handleDisconnect(client));
+    client.socket.add(DevNotification(id: const Uuid().v1(), action: "dev:greet", payload: "Welcome!").toString());
+
     clientRepo.add(client);
-    client.socket.listen((event) => _handleClientEvent(event, client), onDone: () {
-      client.socket.close();
-      clientRepo.remove(client);
-    });
   }
 
   void _handleWebsocketConnection(HttpRequest request) async {
     WebSocket socket = await WebSocketTransformer.upgrade(request);
-    _handleClient(WsClientConnection(socket: socket, request: request));
+    _handleClientConnect(WsClientConnection(socket: socket, request: request));
   }
 
   void handleHttpRequest(HttpRequest request) {
@@ -53,8 +122,8 @@ class DevRequestHandler {
 }
 
 class EndpointHelper {
-  static flavorFormJson(dynamic data) {
-    return Flavor(identifier: data["id"], statusCode: data["statusCode"], body: data["body"]);
+  static Flavor flavorFormJson(dynamic data) {
+    return Flavor(id: data["id"], statusCode: data["statusCode"], body: data["body"]);
   }
 
   static Endpoint endpointFromJson(dynamic data) {

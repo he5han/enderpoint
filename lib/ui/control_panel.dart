@@ -2,17 +2,17 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:enderpoint/app.dart';
-import 'package:enderpoint/app/endpoint_repository.dart';
 import 'package:enderpoint/ui/endpoint_list.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:rxdart/rxdart.dart';
+import 'package:uuid/uuid.dart';
 
 import '../app/dev_client_repository.dart';
 import '../app/endpoint_server_presenter.dart';
-import '../app/selected_endpoint_presenter.dart';
+
 import '../core/endpoint.dart';
 import '../core/flavor.dart';
+
 import 'endpoint_server_controls.dart';
 import 'models/selectable_endpoint.dart';
 
@@ -73,8 +73,8 @@ class SelectedEndpoint extends StatelessWidget {
             ? EndpointCard(
                 endpoint: snapshot.data!,
                 onFlavorSelect: (flavor) =>
-                    app.endpointRepository.update(snapshot.data!, snapshot.data!..flavor = flavor),
-                onRemove: () => app.endpointRepository.remove(snapshot.data!),
+                    app.endpointRepository.update(snapshot.data!.id, snapshot.data!..flavor = flavor),
+                onRemove: () => app.endpointRepository.remove(snapshot.data!.id),
                 onSelect: () => null,
                 isSelected: false)
             : const SizedBox());
@@ -85,14 +85,14 @@ class EndpointCreator extends StatelessWidget {
   const EndpointCreator({Key? key}) : super(key: key);
 
   Endpoint generateEndpoint() {
-    int rNum = Random().nextInt(100);
+    var uuid = const Uuid().v1();
     return Endpoint(
-        rNum,
+        uuid,
         [
-          Flavor(identifier: 0x00, body: {"msg": "hello world"}, statusCode: 200),
-          Flavor(identifier: 0x02, body: {"msg": "Error"}, statusCode: 500),
+          Flavor(id: 0x00, body: {"msg": "hello world"}, statusCode: 200),
+          Flavor(id: 0x02, body: {"msg": "Error"}, statusCode: 500),
         ],
-        "/test-$rNum");
+        "/test-$uuid");
   }
 
   @override
@@ -129,11 +129,10 @@ class EndpointListProviderAdapter extends StatelessWidget {
     return StreamBuilder<List<SelectableEndpoint>>(
         stream: app.selectableEndpointListObserver,
         builder: (context, snapshot) => EndpointList(
-            endpoints: snapshot.data?.map((item) => item.endpoint).toList() ?? [],
-            selectedEndpoint: snapshot.data?.firstWhere((element) => element.isSelected).endpoint,
-            onFlavorSelect: (flavor, endpoint) => app.endpointRepository.update(endpoint, endpoint..flavor = flavor),
+            items: snapshot.data ?? [],
+            onFlavorSelect: (flavor, endpoint) => app.endpointRepository.update(endpoint.id, endpoint..flavor = flavor),
             onSelect: (endpoint) => app.selectedEndpointPresenter.setEndpoint(endpoint),
-            onRemove: (endpoint) => app.endpointRepository.remove(endpoint)));
+            onRemove: (endpoint) => app.endpointRepository.remove(endpoint.id)));
   }
 }
 

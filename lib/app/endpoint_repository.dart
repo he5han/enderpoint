@@ -3,27 +3,29 @@ import 'dart:async';
 import '../core/endpoint.dart';
 
 class EndpointRepository {
-  final StreamController<EndpointRepository> _controller;
-  final List<Endpoint> list;
+  final StreamController<List<Endpoint>> _controller;
+  final Map<String, Endpoint> map;
 
-  EndpointRepository(this.list) : _controller = StreamController.broadcast();
+  EndpointRepository(List<Endpoint> endpoints)
+      : _controller = StreamController.broadcast(),
+        map = Map.fromEntries(endpoints.map((endpoint) => MapEntry(endpoint.id, endpoint)));
 
   void _notify() {
-    _controller.sink.add(this);
+    _controller.sink.add(list);
   }
 
   void add(Endpoint value) {
-    list.add(value);
+    map.addEntries([MapEntry(value.id, value)]);
     _notify();
   }
 
-  void remove(Endpoint value) {
-    list.remove(value);
+  void remove(String id) {
+    map.remove(id);
     _notify();
   }
 
-  void update(Endpoint value, Endpoint nextValue) {
-    value = nextValue;
+  void update(String id, Endpoint nextValue) {
+    map.update(id, (_) => nextValue);
     _notify();
   }
 
@@ -31,5 +33,11 @@ class EndpointRepository {
     return list.firstWhere((element) => element.url == url);
   }
 
-  Stream<EndpointRepository> get stream => _controller.stream;
+  Endpoint? findById(String id) {
+    return map[id];
+  }
+
+  Stream<List<Endpoint>> get stream => _controller.stream;
+
+  List<Endpoint> get list => map.values.toList();
 }

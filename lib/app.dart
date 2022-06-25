@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:enderpoint/app/dev_notification_handler.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:uuid/uuid.dart';
 
+import 'app/dev_ws_broadcaster.dart';
 import 'app/dev_client_repository.dart';
 import 'app/dev_request_handler.dart';
 import 'app/endpoint_repository.dart';
@@ -28,6 +31,8 @@ class App {
   late EndpointServerPresenter endpointServerPresenter;
   late SelectedEndpointPresenter selectedEndpointPresenter;
 
+  late DevNotificationHandler notificationHandler;
+
   App() {
     endpointRequestHandler = EndpointRequestHandler(endpointRepository);
     endpointServer = EndpointServer(endpointRequestHandler, config: EndpointServerConfig(port: 8080));
@@ -37,6 +42,19 @@ class App {
 
     endpointServerPresenter = EndpointServerPresenter(endpointServer);
     selectedEndpointPresenter = SelectedEndpointPresenter();
+
+    notificationHandler = DevNotificationHandler(broadcaster: WsBroadcaster());
+
+    wsClientConnectionRepository.stream.listen((event) {
+      notificationHandler.setConnections(event.list);
+    });
+
+    endpointRepository.stream.listen((event) {
+      notificationHandler.notifyAll(DevNotification(
+          id: const Uuid().v1(),
+          action: "dev:endpoint_repo",
+          payload: endpointRepository.list.length.toString()));
+    });
   }
 
   initPresenterObservables() {
@@ -48,14 +66,14 @@ class App {
     devServer.listen();
   }
 
-  Stream<Endpoint?> get selectedEndpointObserver => Rx.combineLatest2<Endpoint?, EndpointRepository, Endpoint?>(
+  Stream<Endpoint?> get selectedEndpointObserver => Rx.combineLatest2<Endpoint?, List<Endpoint>, Endpoint?>(
       selectedEndpointPresenter.stream,
       endpointRepository.stream,
-      (point, repo) => repo.list.contains(point) ? point : null);
+      (point, repo) => repo.singleWhere((element) => element == point));
 
   Stream<List<SelectableEndpoint>> get selectableEndpointListObserver =>
-      Rx.combineLatest2<Endpoint?, EndpointRepository, List<SelectableEndpoint>>(
+      Rx.combineLatest2<Endpoint?, List<Endpoint>, List<SelectableEndpoint>>(
           selectedEndpointPresenter.stream,
           endpointRepository.stream,
-          (a, b) => b.list.map((endpoint) => SelectableEndpoint(endpoint, endpoint == a)).toList());
+          (a, b) => b.map((endpoint) => SelectableEndpoint(endpoint, endpoint == a)).toList());
 }
