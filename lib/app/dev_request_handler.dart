@@ -3,11 +3,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:enderpoint/app/endpoint_bootstraper.dart';
 import 'package:uuid/uuid.dart';
 
 import '../app/dev_notification_handler.dart';
 import '../app/endpoint_repository.dart';
-import '../core/flavor.dart';
 import '../core/endpoint.dart';
 
 import 'dev_client_connection.dart';
@@ -46,7 +46,7 @@ class DevRequestHandler {
       switch (dEvent["event"]) {
         case "endpoint:create":
           {
-            Endpoint endpoint = EndpointHelper.endpointFromJson(dEvent['payload']);
+            Endpoint endpoint = Endpoint.fromJson(dEvent['payload']);
             endpointRepo.add(endpoint);
             response.body = "OK";
             break;
@@ -54,7 +54,7 @@ class DevRequestHandler {
         case "endpoint:update":
           {
             try {
-              Endpoint endpoint = EndpointHelper.endpointFromJson(dEvent['payload']);
+              Endpoint endpoint = Endpoint.fromJson(dEvent['payload']);
               endpointRepo.update(dEvent['payload']["id"], endpoint);
               response.body = "OK";
             } catch (_) {
@@ -76,8 +76,7 @@ class DevRequestHandler {
         case "endpoint:bootstrap":
           {
             try {
-              endpointRepo.remove(dEvent['payload']["id"]);
-              response.body = "OK";
+              response.body = EndpointBootstraper.bootstrap().toJson();
             } catch (_) {
               response.body = {"error": "Not found"};
             }
@@ -118,15 +117,5 @@ class DevRequestHandler {
     if (request.headers.value('connection') == 'Upgrade') {
       _handleWebsocketConnection(request);
     }
-  }
-}
-
-class EndpointHelper {
-  static Flavor flavorFormJson(dynamic data) {
-    return Flavor(id: data["id"], statusCode: data["statusCode"], body: data["body"]);
-  }
-
-  static Endpoint endpointFromJson(dynamic data) {
-    return Endpoint(data["id"], data["flavors"].map<Flavor>((flavor) => flavorFormJson(flavor)).toList(), data["url"]);
   }
 }

@@ -1,15 +1,18 @@
 import 'dart:io';
 
 class Flavor {
-  final String id;
-  final int statusCode;
-  final dynamic body;
+  String id;
+  int statusCode;
+  dynamic body;
 
-  Flavor({this.statusCode = HttpStatus.ok, required this.id, required this.body});
+  Map<String, dynamic>? headers = const {};
+
+  Flavor({this.statusCode = HttpStatus.ok, required this.id, required this.body, this.headers});
 
   Flavor.fromJson(Map<String, dynamic> data)
       : id = data["id"],
         statusCode = data["statusCode"],
+        headers = data["headers"],
         body = data["body"];
 
   @override
@@ -21,5 +24,11 @@ class Flavor {
       return other.id == id;
     }
     return super == other;
+  }
+}
+
+extension ToJson on Flavor {
+  toJson() {
+    return {"id": id, "statusCode": statusCode, "body": body, "headers": headers};
   }
 }

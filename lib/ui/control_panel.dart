@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../app/dev_client_repository.dart';
+import '../app/endpoint_bootstraper.dart';
 import '../app/endpoint_server_presenter.dart';
 
 import '../core/endpoint.dart';
@@ -83,22 +84,11 @@ class SelectedEndpoint extends StatelessWidget {
 
 class EndpointCreator extends StatelessWidget {
   const EndpointCreator({Key? key}) : super(key: key);
-
-  Endpoint generateEndpoint() {
-    var uuid = const Uuid().v1();
-    return Endpoint(
-        uuid,
-        [
-          Flavor(id: 0x00, body: {"msg": "hello world"}, statusCode: 200),
-          Flavor(id: 0x02, body: {"msg": "Error"}, statusCode: 500),
-        ],
-        "/test-$uuid");
-  }
-
   @override
   Widget build(BuildContext context) {
     return TextButton(
-        onPressed: () => Provider.of<App>(context, listen: false).endpointRepository.add(generateEndpoint()),
+        onPressed: () =>
+            Provider.of<App>(context, listen: false).endpointRepository.add(EndpointBootstraper.bootstrap().toJson()),
         child: const Text("Create Endpoint"));
   }
 }

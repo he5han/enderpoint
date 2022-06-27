@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 
 import '../core/endpoint.dart';
+import '../core/flavor.dart';
 import 'endpoint_repository.dart';
 
 class EndpointRequestHandler {
@@ -10,17 +10,27 @@ class EndpointRequestHandler {
   EndpointRequestHandler(this.endpointCollection);
 
   void _resolveRequest(HttpRequest request, Endpoint endpoint) {
+    if (endpoint.flavor == null) {
+      throw Exception("Flavor not found");
+    }
+
+    Flavor flavor = endpoint.flavor!;
+    if (flavor.headers != null) {
+      for (var key in flavor.headers!.keys) {
+        request.response.headers.set(key, flavor.headers![key]);
+      }
+    }
+
     request.response
-      ..headers.contentType = ContentType.json
-      ..statusCode = endpoint.flavor.statusCode
-      ..write(jsonEncode(endpoint.flavor.body))
+      ..statusCode = endpoint.flavor!.statusCode
+      ..write(endpoint.flavor!.body)
       ..close();
   }
 
   handleHttpRequest(HttpRequest request) {
     try {
       Endpoint? endpoint = endpointCollection.findByUrl(request.uri.toString());
-      if(endpoint != null) {
+      if (endpoint != null) {
         _resolveRequest(request, endpoint);
       }
     } on StateError {

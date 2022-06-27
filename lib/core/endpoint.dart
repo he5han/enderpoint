@@ -31,6 +31,9 @@ extension ToJson on Endpoint {
   toJson() {
     return {
       "id": id,
+      "url": url,
+      "flavors": flavors.map((flavor) => flavor.toJson()).toList(),
+      // "flavor": flavor?.toJson()
     };
   }
 }
