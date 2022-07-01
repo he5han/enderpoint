@@ -21,11 +21,11 @@ typedef ApiMethod<T> = T Function(HttpRequest, Map<String, dynamic>);
 class DevRequestHandler {
   final EndpointRepository endpointRepo;
   final WsHandler _wsHandler;
-  final Map<String, ApiMethod> _devAPIs;
+  final Map<String, ApiMethod> _apis;
 
   DevRequestHandler(WsClientConnectionRepository clientRepo, this.endpointRepo)
       : _wsHandler = WsHandler(clientRepo),
-        _devAPIs = {
+        _apis = {
           "/v1/endpoint/create": (request, data) {
             Endpoint endpoint = Endpoint.fromJson(data);
             endpointRepo.add(endpoint);
@@ -34,14 +34,16 @@ class DevRequestHandler {
               ..write("OK");
           },
           "/v1/endpoint/update": (request, data) {
-            Endpoint endpoint = Endpoint.fromJson(data['payload']);
-            endpointRepo.update(data['payload']["id"], endpoint);
+            Endpoint endpoint = Endpoint.fromJson(data['replacement']);
+            String reference = data['reference'];
+            endpointRepo.update(reference, endpoint);
             return request.response
               ..statusCode = HttpStatus.ok
               ..write("OK");
           },
           "/v1/endpoint/delete": (request, data) {
-            endpointRepo.remove(data['payload']["id"]);
+            String reference = data['reference'];
+            endpointRepo.remove(reference);
             return request.response
               ..statusCode = HttpStatus.ok
               ..write("OK");
@@ -70,8 +72,8 @@ class DevRequestHandler {
       Uint8List data = await request.reduce((previous, element) => previous..addAll(element));
       Map<String, dynamic> decodedContent = jsonDecode(String.fromCharCodes(data));
 
-      if (_devAPIs.containsKey(request.uri.path)) {
-        _devAPIs[request.uri.path]!(request, decodedContent);
+      if (_apis.containsKey(request.uri.path)) {
+        _apis[request.uri.path]!(request, decodedContent);
       } else {
         request.response
           ..statusCode = HttpStatus.notFound
