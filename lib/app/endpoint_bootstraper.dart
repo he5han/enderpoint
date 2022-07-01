@@ -26,3 +26,13 @@ class EndpointBootstraper {
         url ?? "/be${_count++}");
   }
 }
+
+class FlavorBootstraper {
+  static Flavor bootstrap({String? url}) {
+    return Flavor(
+        id: const Uuid().v1(),
+        statusCode: HttpStatus.ok,
+        headers: {"content-type": "text/html; charset=utf-8"},
+        body: "<h1>😎</h1>");
+  }
+}

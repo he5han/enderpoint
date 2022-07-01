@@ -1,3 +1,4 @@
+import 'package:enderpoint/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,25 +14,29 @@ class MyApp extends StatelessWidget {
   final enderpoint.App app = enderpoint.App();
   MyApp({Key? key}) : super(key: key);
 
-  List<Provider> getProviders() {
+  final ThemeProvider themeProvider = ThemeProvider();
+
+  initApp() {
     app.initPresenterObservables();
     app.initDevServer();
-
-    return [
-      Provider<enderpoint.App>(create: (_) => app),
-    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: getProviders(),
-      child: MaterialApp(
-        title: 'Enderpoint',
-        theme: ThemeData(primaryColor: Colors.black),
-        home: const MainPage(),
-      ),
-    );
+    initApp();
+
+    return ChangeNotifierProvider(
+        create: (_) => themeProvider,
+        builder: (context, _) {
+          return MultiProvider(
+            providers: [Provider<enderpoint.App>(create: (_) => app)],
+            child: MaterialApp(
+              title: 'Enderpoint',
+              theme: Provider.of<ThemeProvider>(context).theme,
+              home: const MainPage(),
+            ),
+          );
+        });
   }
 }
 

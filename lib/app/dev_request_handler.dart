@@ -1,121 +1,114 @@
 // ignore_for_file: avoid_print
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:enderpoint/app/endpoint_bootstraper.dart';
 import 'package:uuid/uuid.dart';
 
+import '../app/endpoint_bootstraper.dart';
 import '../app/dev_notification_handler.dart';
 import '../app/endpoint_repository.dart';
+import '../core/flavor.dart';
 import '../core/endpoint.dart';
 
 import 'dev_client_connection.dart';
 import 'dev_client_repository.dart';
 
-class DevWsResponse {
-  static const ok = "OK";
-
-  late WsClientConnection connection;
-  late String requestId;
-  late String action;
-  late dynamic body;
-
-  DevWsResponse() : body = {};
-
-  close() {
-    connection.socket.add(
-        DevNotification(id: const Uuid().v1(), action: "dev:response", payload: {"requestId": requestId, "body": body})
-            .toString());
-  }
-}
+typedef ApiMethod<T> = T Function(HttpRequest, Map<String, dynamic>);
 
 class DevRequestHandler {
-  final WsClientConnectionRepository clientRepo;
   final EndpointRepository endpointRepo;
+  final WsHandler _wsHandler;
+  final Map<String, ApiMethod> _devAPIs;
 
-  DevRequestHandler(this.clientRepo, this.endpointRepo);
-
-  void _handleClientEvent(event, WsClientConnection connection) {
-    try {
-      var dEvent = json.decode(event);
-      DevWsResponse response = DevWsResponse()
-        ..connection = connection
-        ..requestId = dEvent["id"];
-
-      switch (dEvent["event"]) {
-        case "endpoint:create":
-          {
-            Endpoint endpoint = Endpoint.fromJson(dEvent['payload']);
+  DevRequestHandler(WsClientConnectionRepository clientRepo, this.endpointRepo)
+      : _wsHandler = WsHandler(clientRepo),
+        _devAPIs = {
+          "/v1/endpoint/create": (request, data) {
+            Endpoint endpoint = Endpoint.fromJson(data);
             endpointRepo.add(endpoint);
-            response.body = "OK";
-            break;
+            return request.response
+              ..statusCode = HttpStatus.ok
+              ..write("OK");
+          },
+          "/v1/endpoint/update": (request, data) {
+            Endpoint endpoint = Endpoint.fromJson(data['payload']);
+            endpointRepo.update(data['payload']["id"], endpoint);
+            return request.response
+              ..statusCode = HttpStatus.ok
+              ..write("OK");
+          },
+          "/v1/endpoint/delete": (request, data) {
+            endpointRepo.remove(data['payload']["id"]);
+            return request.response
+              ..statusCode = HttpStatus.ok
+              ..write("OK");
+          },
+          "/v1/endpoint/bootstrap": (request, data) {
+            return request.response
+              ..headers.contentType = ContentType.json
+              ..statusCode = HttpStatus.ok
+              ..write(jsonEncode(EndpointBootstraper.bootstrap().toJson()));
+          },
+          "/v1/flavor/bootstrap": (request, data) {
+            return request.response
+              ..headers.contentType = ContentType.json
+              ..statusCode = HttpStatus.ok
+              ..write(jsonEncode(FlavorBootstraper.bootstrap().toJson()));
+          },
+          "/v1/uuid/generate": (request, data) {
+            return request.response
+              ..statusCode = HttpStatus.ok
+              ..write(jsonEncode({"version": "v1", "uuid": const Uuid().v1()}));
           }
-        case "endpoint:update":
-          {
-            try {
-              Endpoint endpoint = Endpoint.fromJson(dEvent['payload']);
-              endpointRepo.update(dEvent['payload']["id"], endpoint);
-              response.body = "OK";
-            } catch (_) {
-              response.body = {"error": "Not found"};
-            }
+        };
 
-            break;
-          }
-        case "endpoint:delete":
-          {
-            try {
-              endpointRepo.remove(dEvent['payload']["id"]);
-              response.body = "OK";
-            } catch (_) {
-              response.body = {"error": "Not found"};
-            }
-            break;
-          }
-        case "endpoint:bootstrap":
-          {
-            try {
-              response.body = EndpointBootstraper.bootstrap().toJson();
-            } catch (_) {
-              response.body = {"error": "Not found"};
-            }
-            break;
-          }
-        default:
-          {
-            response.body = {"error": "Method '${dEvent["event"]}' not found"};
-            break;
-          }
+  void _handleRequest(HttpRequest request) async {
+    try {
+      Uint8List data = await request.reduce((previous, element) => previous..addAll(element));
+      Map<String, dynamic> decodedContent = jsonDecode(String.fromCharCodes(data));
+
+      if (_devAPIs.containsKey(request.uri.path)) {
+        _devAPIs[request.uri.path]!(request, decodedContent);
+      } else {
+        request.response
+          ..statusCode = HttpStatus.notFound
+          ..write("404 not found");
       }
-
-      response.close();
-    } catch (err) {
-      print(err);
+    } catch (_error) {
+      request.response
+        ..statusCode = HttpStatus.badRequest
+        ..write(_error.toString());
     }
-  }
-
-  void _handleDisconnect(WsClientConnection client) {
-    client.socket.close();
-
-    clientRepo.remove(client);
-  }
-
-  void _handleClientConnect(WsClientConnection client) {
-    client.socket.listen((event) => _handleClientEvent(event, client), onDone: () => _handleDisconnect(client));
-    client.socket.add(DevNotification(id: const Uuid().v1(), action: "dev:greet", payload: "Welcome!").toString());
-
-    clientRepo.add(client);
-  }
-
-  void _handleWebsocketConnection(HttpRequest request) async {
-    WebSocket socket = await WebSocketTransformer.upgrade(request);
-    _handleClientConnect(WsClientConnection(socket: socket, request: request));
+    request.response.close();
   }
 
   void handleHttpRequest(HttpRequest request) {
     if (request.headers.value('connection') == 'Upgrade') {
-      _handleWebsocketConnection(request);
+      _wsHandler.handleUpgradeRequest(request, onEvent: (_, __) {});
+    } else {
+      _handleRequest(request);
     }
+  }
+}
+
+typedef WsEventCallback = Function(WsClientConnection client, dynamic event);
+
+class WsHandler {
+  final WsClientConnectionRepository clientRepo;
+  WsHandler(this.clientRepo);
+
+  handleUpgradeRequest(HttpRequest request, {required WsEventCallback onEvent, Function? onError}) async {
+    WebSocket socket = await WebSocketTransformer.upgrade(request);
+    WsClientConnection client = WsClientConnection(socket: socket, request: request);
+
+    client.socket.listen((event) => onEvent(client, event), onDone: () {
+      client.socket.close();
+      clientRepo.remove(client);
+    });
+    client.socket.add(DevNotification(id: const Uuid().v1(), action: "dev:greet", payload: "Welcome!").toString());
+    clientRepo.add(client);
   }
 }

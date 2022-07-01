@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:enderpoint/app.dart';
 import 'package:enderpoint/ui/endpoint_list.dart';
+import 'package:enderpoint/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -22,6 +23,7 @@ class ControlPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Color color = Theme.of(context).primaryColor;
     return Column(
       children: [
         const IpContainer(),
@@ -29,6 +31,13 @@ class ControlPanel extends StatelessWidget {
           children: const [EndpointServerControlsProviderAdapter(), EndpointCreator()],
         ),
         const DevClintPresenterProviderAdapter(),
+        Container(height: 10, width: 10, color: color),
+        TextButton(
+            onPressed: () {
+              ThemeProvider themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+              themeProvider.toggleTheme();
+            },
+            child: Text("Set light theme", style: TextStyle(color: color))),
         const Expanded(child: EndpointListProviderAdapter()),
         const SelectedEndpoint()
       ],
