@@ -31,6 +31,7 @@ class MyApp extends StatelessWidget {
           return MultiProvider(
             providers: [Provider<enderpoint.App>(create: (_) => app)],
             child: MaterialApp(
+              debugShowCheckedModeBanner: false,
               title: 'Enderpoint',
               theme: Provider.of<ThemeProvider>(context).theme,
               home: const MainPage(),
@@ -46,7 +47,9 @@ class MainPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // appBar: AppBar(title: const Text("Main Controls"),),
         body: Container(
+          color: Colors.white,
             child: const SafeArea(child: ControlPanel()), padding: const EdgeInsets.symmetric(horizontal: 10)));
   }
 }

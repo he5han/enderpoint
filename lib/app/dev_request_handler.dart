@@ -27,6 +27,11 @@ class DevRequestHandler {
       : _wsHandler = WsHandler(clientRepo),
         _apis = {
           "/v1/endpoint/create": (request, data) {
+            /*
+            {
+              ...[Endpoint Data]
+            }
+            */
             Endpoint endpoint = Endpoint.fromJson(data);
             endpointRepo.add(endpoint);
             return request.response
@@ -34,6 +39,12 @@ class DevRequestHandler {
               ..write("OK");
           },
           "/v1/endpoint/update": (request, data) {
+            /*
+            {
+              "reference" : "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+              "replacement" ...[Endpoint Data]
+            }
+            */
             Endpoint endpoint = Endpoint.fromJson(data['replacement']);
             String reference = data['reference'];
             endpointRepo.update(reference, endpoint);
@@ -42,6 +53,11 @@ class DevRequestHandler {
               ..write("OK");
           },
           "/v1/endpoint/delete": (request, data) {
+            /*
+            {
+              "reference" : "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+            }
+            */
             String reference = data['reference'];
             endpointRepo.remove(reference);
             return request.response
